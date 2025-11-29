@@ -101,7 +101,7 @@ function TimeWeatherControl() {
 
   return (
     // ADJUSTMENTS: Reduced max-width to 140px, reduced padding (p-1.5)
-    <div className="leaflet-control p-1.5 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border-l-4 border-indigo-500 mr-2 mt-2 max-w-[140px] sm:max-w-[200px] font-sans">
+    <div className=" p-1.5 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border-l-4 border-indigo-500 -mr-2 -mt-2 max-w-[140px] sm:max-w-[200px] font-sans">
       <h3 className="text-[10px] font-bold text-gray-700 mb-1 flex items-center justify-center text-center">
         {/* Reduced icon size and margin */}
         <FaMapMarkerAlt className="mr-1 text-red-500 w-2.5 h-2.5" />{" "}

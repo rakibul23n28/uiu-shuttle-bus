@@ -68,47 +68,70 @@ const schedules: Record<string, RouteSchedules> = {
     fromUIU: {
       from: "UIU",
       to: "Aftab",
-      times: ["10:00 AM", "12:30 PM", "03:10 PM"],
+      times: ["02:00 PM", "03:20 PM", "04:40 PM - 06:00 PM"],
       offDays: "Thursday, Friday",
     },
     toUIU: {
       from: "Aftab",
       to: "UIU",
-      times: ["10:00 AM", "12:30 PM", "04:10 PM"],
+      times: ["06:50 AM- 09:00 AM", "10:30 AM", "11:50 AM", "01:10 PM"],
     },
   },
   "Notun Bazar": {
     fromUIU: {
       from: "UIU",
       to: "Notun Bazar",
-      times: ["09:30 AM", "01:00 PM", "04:00 PM"],
+      times: [
+        "10:05 AM",
+        "11:25 AM",
+        "12:45 PM",
+        "02:05 PM",
+        "03:25 PM",
+        "04:40 PM",
+        "06:10 PM",
+        "05:45 PM",
+        "07:00 PM",
+        "09:40 PM",
+      ],
       offDays: "Friday",
     },
     toUIU: {
       from: "Notun Bazar",
       to: "UIU",
-      times: ["10:00 AM", "01:30 PM", "05:00 PM"],
+      times: [
+        "07:30 AM- 08:45 AM",
+        "09:25 AM- 09:35 AM",
+        "10:45 AM- 10:55 AM",
+        "12:05 PM- 12:15 PM",
+        "01:25 PM- 01:35 PM",
+        "02:45 PM- 02:55 PM",
+        "09:40 PM",
+      ],
     },
   },
   Kuril: {
     fromUIU: {
       from: "UIU",
       to: "Kuril",
-      times: ["08:00 AM", "11:30 AM", "02:00 PM"],
+      times: ["11:10 AM", "01:40 PM", "04:10 PM"],
       offDays: "Saturday",
     },
     toUIU: {
       from: "Kuril",
       to: "UIU",
-      times: ["09:30 AM", "12:00 PM", "03:30 PM"],
+      times: [
+        "07:30 AM - 8:40 AM",
+        "10:00 AM - 11:10 AM",
+        "12:30 PM - 1:40 PM",
+      ],
     },
   },
 };
 
 const supervisors: Record<string, { name: string; contact: string }> = {
   Aftab: { name: "Mr. Rahim", contact: "+880-170-0000001" },
-  "Notun Bazar": { name: "Ms. Salma", contact: "+880-170-0000002" },
-  Kuril: { name: "Mr. Karim", contact: "+880-170-0000003" },
+  "Notun Bazar": { name: "Mr. Rahim", contact: "+880-170-0000001" },
+  Kuril: { name: "Mr. Rahim", contact: "+880-170-0000001" },
 };
 
 // Map route names in the schedules/supervisors data to route IDs in the server data
@@ -168,8 +191,11 @@ function ScheduleModal({
   const nextTripTime = findNextTrip(scheduleData.times);
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex justify-center items-center p-4 z-50 backdrop-blur-sm transition-opacity duration-300">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-8 relative shadow-2xl transform scale-100 transition-transform duration-300">
+    <div className="fixed inset-0 bg-black/80 flex justify-center items-center p-4 z-50 backdrop-blur-sm overflow-auto">
+      <div
+        className="bg-white rounded-3xl max-w-lg w-full p-8 relative shadow-2xl transform scale-100 transition-transform duration-300
+                    max-h-[90vh] overflow-y-auto"
+      >
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -436,7 +462,7 @@ export default function HomePage() {
   // --- END: Helper function ---
 
   return (
-    <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-8 font-sans bg-gray-50 min-h-screen">
+    <main className="w-full max-w-6xl mx-auto font-sans  min-h-screen">
       <Navbar themeColor={THEME_COLOR} />
 
       {/* ---- Live Map Section ---- */}
