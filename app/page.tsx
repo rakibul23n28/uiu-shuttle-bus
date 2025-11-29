@@ -439,8 +439,21 @@ export default function HomePage() {
     <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-8 font-sans bg-gray-50 min-h-screen">
       <Navbar themeColor={THEME_COLOR} />
 
+      {/* ---- Live Map Section ---- */}
+      <section className="mb-10 mt-8">
+        <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
+          <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-3"></span>
+          Live Map 🛰️
+        </h2>
+        <div className="h-[60vh] rounded-3xl shadow-2xl overflow-hidden border-4 border-white">
+          <ShuttleMap routes={routes || []} serverData={data} />
+        </div>
+      </section>
+
+      <hr className="my-8 border-gray-200" />
+
       {/* ---- Route Cards ---- */}
-      <section className="mt-8 mb-10">
+      <section className="mb-10">
         <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
           Route Information & Live Status 🚦
         </h2>
@@ -488,18 +501,6 @@ export default function HomePage() {
               </div>
             );
           })}
-        </div>
-      </section>
-
-      <hr className="my-8 border-gray-200" />
-
-      {/* ---- Live Map Section ---- */}
-      <section className="mb-10">
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
-          Live Shuttle Tracker 🛰️
-        </h2>
-        <div className="h-[60vh] rounded-3xl shadow-2xl overflow-hidden border-4 border-white">
-          <ShuttleMap routes={routes || []} serverData={data} />
         </div>
       </section>
 
