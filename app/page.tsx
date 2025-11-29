@@ -522,7 +522,7 @@ export default function HomePage() {
             ? "bg-red-500 hover:bg-red-600"
             : // FIX: Ensure ACCENT_COLOR is correctly used in template literal without unnecessary array syntax
               `bg-[${ACCENT_COLOR}] hover:bg-[#D47113]`
-        } text-white px-5 py-4 rounded-full shadow-xl text-lg font-semibold flex items-center space-x-2`}
+        } text-white bg-green-500 px-5 py-4 rounded-full shadow-xl text-lg font-semibold flex items-center space-x-2`}
       >
         <HiLocationMarker className="h-6 w-6" />
         <span>{sharing ? "Sharing Live" : "Share Location"}</span>
@@ -570,7 +570,7 @@ export default function HomePage() {
 
           <button
             onClick={!sharing ? startSharing : stopSharing}
-            className={`w-full py-3 mt-4 rounded-xl text-white font-bold text-base shadow-lg transition-all ${
+            className={`w-full py-3 mt-4 rounded-xl text-white bg-green-500 font-bold text-base shadow-lg transition-all ${
               !sharing
                 ? `bg-[${ACCENT_COLOR}] hover:bg-[#D47113]`
                 : "bg-red-500 hover:bg-red-600"
