@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import dynamic from "next/dynamic";
 import useSocket from "../hooks/useSocket";
 import { getRoutes } from "../lib/routes";
@@ -19,26 +25,33 @@ import {
   HiStop,
 } from "react-icons/hi";
 
-// Define the required Socket type
-interface SocketInterface {
-  emit: (event: string, data: any) => void;
-}
-
 // Use dynamic import for the map component to ensure it's client-side only
 const ShuttleMap = dynamic(() => import("../components/ShuttleMap"), {
   ssr: false,
 });
 
-// ---- Types (Kept as is) ----
+// ====================================================================
+// ---- 1. TYPES & CONSTANTS ----
+// ====================================================================
+
+interface SocketInterface {
+  emit: (event: string, data: any) => void;
+}
+
 interface Route {
   id: string;
   name: string;
   color?: string;
 }
 
+interface Position {
+  lat: number;
+  lng: number;
+}
+
 interface ServerRouteData {
   route: Route;
-  position: { lat: number; lng: number } | null;
+  position: Position | null;
   eta: number | null; // Estimated Time of Arrival in seconds
   sharers: number;
 }
@@ -62,120 +75,188 @@ interface RouteSchedules {
   toUIU: Schedule;
 }
 
-// ---- Data (Kept as is) ----
-const schedules: Record<string, RouteSchedules> = {
-  Aftab: {
-    fromUIU: {
-      from: "UIU",
-      to: "Aftab",
-      times: ["02:00 PM", "03:20 PM", "04:40 PM - 06:00 PM"],
-      offDays: "Thursday, Friday",
-    },
-    toUIU: {
-      from: "Aftab",
-      to: "UIU",
-      times: ["06:50 AM- 09:00 AM", "10:30 AM", "11:50 AM", "01:10 PM"],
-    },
-  },
-  "Notun Bazar": {
-    fromUIU: {
-      from: "UIU",
-      to: "Notun Bazar",
-      times: [
-        "10:05 AM",
-        "11:25 AM",
-        "12:45 PM",
-        "02:05 PM",
-        "03:25 PM",
-        "04:40 PM",
-        "06:10 PM",
-        "05:45 PM",
-        "07:00 PM",
-        "09:40 PM",
-      ],
-      offDays: "Friday",
-    },
-    toUIU: {
-      from: "Notun Bazar",
-      to: "UIU",
-      times: [
-        "07:30 AM- 08:45 AM",
-        "09:25 AM- 09:35 AM",
-        "10:45 AM- 10:55 AM",
-        "12:05 PM- 12:15 PM",
-        "01:25 PM- 01:35 PM",
-        "02:45 PM- 02:55 PM",
-        "09:40 PM",
-      ],
-    },
-  },
-  Kuril: {
-    fromUIU: {
-      from: "UIU",
-      to: "Kuril",
-      times: ["11:10 AM", "01:40 PM", "04:10 PM"],
-      offDays: "Saturday",
-    },
-    toUIU: {
-      from: "Kuril",
-      to: "UIU",
-      times: [
-        "07:30 AM - 8:40 AM",
-        "10:00 AM - 11:10 AM",
-        "12:30 PM - 1:40 PM",
-      ],
-    },
-  },
-};
+interface Supervisor {
+  name: string;
+  contact: string;
+}
 
-const supervisors: Record<string, { name: string; contact: string }> = {
-  Aftab: { name: "Mr. Rahim", contact: "+880-170-0000001" },
-  "Notun Bazar": { name: "Mr. Rahim", contact: "+880-170-0000001" },
-  Kuril: { name: "Mr. Rahim", contact: "+880-170-0000001" },
-};
-
-// Map route names in the schedules/supervisors data to route IDs in the server data
-const ROUTE_NAME_TO_ID: Record<string, string> = {
-  Kuril: "kuril",
-  Aftab: "aftab",
-  "Notun Bazar": "notun",
-};
+interface RouteData {
+  schedules: RouteSchedules;
+  supervisor: Supervisor;
+  id: string; // Route ID for the server (e.g., 'kuril')
+}
 
 // Define colors for better UI theme consistency
 const THEME_COLOR = "#4F46E5"; // Indigo-600
 const ACCENT_COLOR = "#F68B1F"; // Original Orange
 
-// ---- Utility Function for Time Calculation (Kept as is) ----
-function findNextTrip(times: string[]): string | null {
+// ====================================================================
+// ---- 2. CONSOLIDATED DATA ----
+// ====================================================================
+
+const ALL_ROUTE_DATA: Record<string, RouteData> = {
+  Aftab: {
+    id: "aftab",
+    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
+    schedules: {
+      fromUIU: {
+        from: "UIU",
+        to: "Aftab",
+        times: ["02:00 PM", "03:20 PM", "04:40 PM - 06:00 PM"],
+        offDays: "Thursday, Friday",
+      },
+      toUIU: {
+        from: "Aftab",
+        to: "UIU",
+        times: ["06:50 AM- 09:00 AM", "10:30 AM", "11:50 AM", "01:10 PM"],
+      },
+    },
+  },
+  "Notun Bazar": {
+    id: "notun",
+    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
+    schedules: {
+      fromUIU: {
+        from: "UIU",
+        to: "Notun Bazar",
+        times: [
+          "10:05 AM",
+          "11:25 AM",
+          "12:45 PM",
+          "02:05 PM",
+          "03:25 PM",
+          "04:40 PM",
+          "06:10 PM",
+          "05:45 PM",
+          "07:00 PM",
+          "09:40 PM",
+        ],
+        offDays: "Friday",
+      },
+      toUIU: {
+        from: "Notun Bazar",
+        to: "UIU",
+        times: [
+          "07:30 AM- 08:45 AM",
+          "09:25 AM- 09:35 AM",
+          "10:45 AM- 10:55 AM",
+          "12:05 PM- 12:15 PM",
+          "01:25 PM- 01:35 PM",
+          "02:45 PM- 02:55 PM",
+          "09:40 PM",
+        ],
+      },
+    },
+  },
+  Kuril: {
+    id: "kuril",
+    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
+    schedules: {
+      fromUIU: {
+        from: "UIU",
+        to: "Kuril",
+        times: ["11:10 AM", "01:40 PM", "04:10 PM"],
+        offDays: "Saturday",
+      },
+      toUIU: {
+        from: "Kuril",
+        to: "UIU",
+        times: [
+          "07:30 AM - 8:40 AM",
+          "10:00 AM - 11:10 AM",
+          "12:30 PM - 1:40 PM",
+        ],
+      },
+    },
+  },
+};
+
+// ====================================================================
+// ---- 3. TIME UTILITIES (Refactored) ----
+// ====================================================================
+
+interface ParsedTime {
+  hour: number;
+  minute: number;
+}
+
+/**
+ * Parses a time string in "HH:MM AM/PM" format.
+ * @param timeStr Time string.
+ * @returns Parsed hour/minute object or null.
+ */
+function parseTime(timeStr: string): ParsedTime | null {
+  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return null;
+
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+
+  if (period === "PM" && hour !== 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+
+  return { hour, minute };
+}
+
+/**
+ * Checks if a given time (hour, minute) is after the current time.
+ */
+function isAfterCurrent(hour: number, minute: number): boolean {
   const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
+  const nowHour = now.getHours();
+  const nowMinute = now.getMinutes();
 
+  return hour > nowHour || (hour === nowHour && minute > nowMinute);
+}
+
+/**
+ * Checks if the current time is within a range [start, end].
+ */
+function isWithinRange(start: ParsedTime, end: ParsedTime): boolean {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+
+  const afterStart = h > start.hour || (h === start.hour && m >= start.minute);
+  const beforeEnd = h < end.hour || (h === end.hour && m <= end.minute);
+
+  return afterStart && beforeEnd;
+}
+
+/**
+ * Finds the next scheduled trip time string based on the current time.
+ * For time ranges, it uses the start time for comparison.
+ * @param times Array of time strings.
+ * @returns The full time string of the next trip, or null.
+ */
+function findNextTrip(times: string[]): string | null {
   for (const timeStr of times) {
-    const parts = timeStr.match(/(\d{1,2}):(\d{2}) (AM|PM)/i);
-    if (!parts) continue;
+    if (timeStr.includes("-")) {
+      const [startTime, endTime] = timeStr.split("-").map((s) => s.trim());
+      const start = parseTime(startTime);
+      const end = parseTime(endTime);
+      if (!start || !end) continue;
 
-    let hour = parseInt(parts[1], 10);
-    const minute = parseInt(parts[2], 10);
-    const ampm = parts[3].toUpperCase();
-
-    if (ampm === "PM" && hour !== 12) {
-      hour += 12;
-    } else if (ampm === "AM" && hour === 12) {
-      hour = 0;
-    }
-
-    if (
-      hour > currentHour ||
-      (hour === currentHour && minute > currentMinute)
-    ) {
-      return timeStr;
+      // Check if current time is within the range, or if the range start is in the future
+      if (
+        isWithinRange(start, end) ||
+        isAfterCurrent(start.hour, start.minute)
+      ) {
+        return timeStr;
+      }
+    } else {
+      const time = parseTime(timeStr);
+      if (!time) continue;
+      if (isAfterCurrent(time.hour, time.minute)) return timeStr;
     }
   }
   return null;
 }
 
-// ---- Schedule Modal Component (Cleaned up) ----
+// ====================================================================
+// ---- 4. SCHEDULE MODAL COMPONENT ----
+// ====================================================================
 
 function ScheduleModal({
   routeName,
@@ -194,7 +275,7 @@ function ScheduleModal({
     <div className="fixed inset-0 bg-black/80 flex justify-center items-center p-4 z-50 backdrop-blur-sm overflow-auto">
       <div
         className="bg-white rounded-3xl max-w-lg w-full p-8 relative shadow-2xl transform scale-100 transition-transform duration-300
-                    max-h-[90vh] overflow-y-auto"
+        max-h-[90vh] overflow-y-auto"
       >
         {/* Close Button */}
         <button
@@ -302,10 +383,11 @@ function ScheduleModal({
   );
 }
 
-// ---- Main Component (Integrates Live Data - Cleaned up) ----
+// ====================================================================
+// ---- 5. MAIN COMPONENT ----
+// ====================================================================
 
 export default function HomePage() {
-  // Note: Removed the explicit type assertion as useSocket should handle the return types
   const { data, socket } = useSocket() as {
     data: LiveServerData | null;
     socket: SocketInterface | null;
@@ -315,38 +397,49 @@ export default function HomePage() {
   const [modalRoute, setModalRoute] = useState<string | null>(null);
   const [showSharePanel, setShowSharePanel] = useState(false);
 
+  // Default to 'kuril' if the array isn't populated yet
   const [routeId, setRouteId] = useState<string>("kuril");
   const [sharing, setSharing] = useState(false);
   const watchIdRef = useRef<number | null>(null);
 
-  // Fetch Routes
+  // Map route names to server data
+  const routeNames = useMemo(() => Object.keys(ALL_ROUTE_DATA), []);
+
+  // Fetch Routes from external source (assuming getRoutes provides name/id mapping)
   useEffect(() => {
     getRoutes().then((r) => {
       setRoutes(r || []);
       if (r && r.length > 0) {
+        // Use the ID of the first fetched route as the default selection
         setRouteId(r[0].id.toLowerCase());
       }
     });
   }, []);
 
-  // --- Hook into useSocket to manage sharing state correctly ---
+  // Clean up geolocation watch on unmount or when `sharing` is changed to false externally
   useEffect(() => {
-    if (!data) return;
+    return () => {
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
 
-    const sharingRouteId = routes.find((r) => r.id === routeId)?.id;
+  // Stop Sharing - Refactored as a stable function
+  const stopSharing = useCallback(() => {
+    if (!socket) return;
 
-    if (
-      sharing &&
-      sharingRouteId &&
-      data[sharingRouteId] &&
-      data[sharingRouteId].sharers === 0
-    ) {
-      // Logic to handle stale tracking removal
+    if (watchIdRef.current != null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
     }
-  }, [data, sharing, routeId, routes]);
 
-  // Start Sharing Location
-  function startSharing() {
+    socket.emit("share:stop", {});
+    setSharing(false);
+  }, [socket]);
+
+  // Start Sharing Location - Refactored as a stable function
+  const startSharing = useCallback(() => {
     if (!socket) {
       alert("Connection not ready. Please try again.");
       return;
@@ -375,24 +468,7 @@ export default function HomePage() {
     watchIdRef.current = id;
     setSharing(true);
     setShowSharePanel(false);
-  }
-
-  // Stop Sharing
-  function stopSharing() {
-    if (!socket) return;
-
-    if (watchIdRef.current != null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-    }
-    watchIdRef.current = null;
-
-    // FIX: Added empty object payload for TypeScript compatibility
-    socket.emit("share:stop", {});
-    setSharing(false);
-  }
-
-  // Function to map route name to its ID
-  const getRouteIdFromName = (name: string) => ROUTE_NAME_TO_ID[name] || "";
+  }, [socket, routeId, routes, stopSharing]);
 
   // --- Helper function to render the live status UI ---
   const renderLiveStatus = (liveData: ServerRouteData | undefined) => {
@@ -449,7 +525,7 @@ export default function HomePage() {
           </span>
         </div>
 
-        {/* 3. Sharer Count */}
+        {/* 3. Sharer Count (Full-width for better display) */}
         <div className="col-span-2 flex items-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 text-gray-700">
           <HiUser className="h-5 w-5 text-purple-500" />
           <span className="text-sm font-semibold">
@@ -459,10 +535,9 @@ export default function HomePage() {
       </div>
     );
   };
-  // --- END: Helper function ---
 
   return (
-    <main className="w-full max-w-6xl mx-auto font-sans  min-h-screen">
+    <main className="w-full max-w-6xl mx-auto font-sans min-h-screen">
       <Navbar themeColor={THEME_COLOR} />
 
       {/* ---- Live Map Section ---- */}
@@ -484,10 +559,9 @@ export default function HomePage() {
           Route Information & Live Status 🚦
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.keys(schedules).map((routeName) => {
-            const supervisor = supervisors[routeName];
-            const routeId = getRouteIdFromName(routeName);
-            const liveData = data ? data[routeId] : undefined;
+          {routeNames.map((routeName) => {
+            const routeData = ALL_ROUTE_DATA[routeName];
+            const liveData = data ? data[routeData.id] : undefined;
 
             return (
               <div
@@ -499,7 +573,7 @@ export default function HomePage() {
                   {routeName}
                 </h3>
 
-                {/* INJECT LIVE STATUS HERE */}
+                {/* LIVE STATUS */}
                 {renderLiveStatus(liveData)}
                 <hr className="my-4 border-gray-100" />
                 {/* END LIVE STATUS */}
@@ -508,13 +582,13 @@ export default function HomePage() {
                   <div className="flex items-center gap-2">
                     <HiUser className="h-5 w-5 text-indigo-500" />
                     <span className="font-semibold">
-                      Supervisor: {supervisor.name}
+                      Supervisor: {routeData.supervisor.name}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <HiPhone className="h-5 w-5 text-indigo-500" />
-                    <span>Contact: {supervisor.contact}</span>
+                    <span>Contact: {routeData.supervisor.contact}</span>
                   </div>
                 </div>
 
@@ -531,10 +605,10 @@ export default function HomePage() {
       </section>
 
       {/* ---- Schedule Modal (Conditional Rendering) ---- */}
-      {modalRoute && schedules[modalRoute] && (
+      {modalRoute && ALL_ROUTE_DATA[modalRoute] && (
         <ScheduleModal
           routeName={modalRoute}
-          schedules={schedules[modalRoute]}
+          schedules={ALL_ROUTE_DATA[modalRoute].schedules}
           onClose={() => setModalRoute(null)}
         />
       )}
@@ -547,9 +621,8 @@ export default function HomePage() {
         className={`fixed bottom-8 right-8 z-50 transition-all duration-300 ${
           sharing
             ? "bg-red-500 hover:bg-red-600"
-            : // FIX: Ensure ACCENT_COLOR is correctly used in template literal without unnecessary array syntax
-              `bg-[${ACCENT_COLOR}] hover:bg-[#D47113]`
-        } text-white bg-green-500 px-5 py-4 rounded-full shadow-xl text-lg font-semibold flex items-center space-x-2`}
+            : `bg-[${ACCENT_COLOR}] hover:bg-[#D47113]`
+        } text-white px-5 py-4 rounded-full shadow-xl text-lg font-semibold flex items-center space-x-2`}
       >
         <HiLocationMarker className="h-6 w-6" />
         <span>{sharing ? "Sharing Live" : "Share Location"}</span>
