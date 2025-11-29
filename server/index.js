@@ -263,6 +263,6 @@ app.delete("/api/routes/:id", (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, "localhost", () =>
+server.listen(PORT, () =>
   console.log(`Socket server listening on http://localhost:${PORT}`)
 );

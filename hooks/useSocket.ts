@@ -1,10 +1,8 @@
 "use client";
 import { io, Socket } from "socket.io-client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-// Define a type for the live data if known, otherwise keep 'any'
 interface LiveServerData {
-  // Structure of data expected from 'buses:update'
   [routeId: string]: {
     route: any;
     position: { lat: number; lng: number } | null;
@@ -14,30 +12,29 @@ interface LiveServerData {
 }
 
 export default function useSocket() {
-  // Use state for the socket instance to trigger re-renders when connected
   const [socket, setSocket] = useState<Socket | null>(null);
   const [data, setData] = useState<LiveServerData | {}>({});
 
   useEffect(() => {
-    // 1. Establish connection and save instance
-    const s = io("http://localhost:4000");
-    setSocket(s); // Triggers re-render with the connected socket
+    // Use environment variable if defined, fallback to localhost
+    const BACKEND_URL =
+      process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
-    // 2. Set up event listeners
+    const s = io(BACKEND_URL);
+    setSocket(s);
+
     s.on("buses:update", (payload: LiveServerData) => {
       setData(payload);
     });
 
-    // Optional: Add logging
     s.on("connect", () => console.log("Socket connected:", s.id));
     s.on("disconnect", () => console.log("Socket disconnected"));
 
-    // 3. Cleanup function
     return () => {
       s.off("buses:update");
       s.disconnect();
     };
-  }, []); // Empty dependency array ensures it runs only once // Return the state variables
+  }, []);
 
   return { socket, data };
 }
