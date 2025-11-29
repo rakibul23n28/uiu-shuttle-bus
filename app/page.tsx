@@ -531,13 +531,13 @@ export default function HomePage() {
 
       {/* ---- Share Panel ---- */}
       {showSharePanel && (
-        <div className="fixed bottom-24 right-8 w-80 bg-white rounded-3xl shadow-2xl p-5 z-50 border-t-4 border-indigo-500 animate-slide-in">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold text-xl text-gray-800">
+        <div className="fixed bottom-20 right-4 w-72 sm:w-80 bg-white rounded-2xl shadow-xl p-3 sm:p-5 z-50 border-t-4 border-indigo-500 animate-slide-in">
+          <div className="flex justify-between items-center mb-2 sm:mb-3">
+            <h3 className="font-bold text-lg sm:text-xl text-gray-800">
               Start Sharing 📢
             </h3>
             <button
-              className="text-gray-400 hover:text-red-500 text-xl font-bold transition"
+              className="text-gray-400 hover:text-red-500 text-lg sm:text-xl font-bold transition"
               onClick={() => setShowSharePanel(false)}
               aria-label="Close share panel"
             >
@@ -545,13 +545,13 @@ export default function HomePage() {
             </button>
           </div>
 
-          <p className="text-sm mt-2 text-indigo-700 bg-indigo-50 p-2 rounded-lg font-medium">
+          <p className="text-xs sm:text-sm mt-1 sm:mt-2 text-indigo-700 bg-indigo-50 p-1 sm:p-2 rounded-lg font-medium">
             💡 **When You are in a Shuttle Bus.**
           </p>
 
           <label
             htmlFor="route-select"
-            className="block text-gray-700 mt-4 mb-2 font-medium"
+            className="block text-gray-700 mt-2 sm:mt-4 mb-1 sm:mb-2 font-medium text-sm"
           >
             Select Route:
           </label>
@@ -560,7 +560,7 @@ export default function HomePage() {
             id="route-select"
             value={routeId}
             onChange={(e) => setRouteId(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+            className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors text-sm"
           >
             {routes.map((r) => (
               <option key={r.id} value={r.id}>
@@ -571,10 +571,10 @@ export default function HomePage() {
 
           <button
             onClick={!sharing ? startSharing : stopSharing}
-            className={`w-full py-3 mt-4 rounded-xl text-white bg-green-500 font-bold text-base shadow-lg transition-all ${
+            className={`w-full py-2 sm:py-3 mt-3 sm:mt-4 rounded-lg text-white font-bold text-sm sm:text-base shadow-md transition-all ${
               !sharing
-                ? `bg-[${ACCENT_COLOR}] hover:bg-[#D47113]`
-                : "bg-red-500 hover:bg-red-600"
+                ? "bg-emerald-500 hover:bg-emerald-600"
+                : "bg-rose-500 hover:bg-rose-600"
             }`}
           >
             {!sharing ? "Activate Live Tracker" : "Stop Tracking"}
@@ -582,7 +582,7 @@ export default function HomePage() {
 
           {/* Status Message */}
           {sharing && (
-            <p className="text-center text-sm mt-3 text-green-700 font-semibold">
+            <p className="text-center text-xs sm:text-sm mt-2 text-emerald-700 font-semibold">
               Location is being shared live on route **
               {routes.find((r) => r.id === routeId)?.name || routeId}**.
             </p>
