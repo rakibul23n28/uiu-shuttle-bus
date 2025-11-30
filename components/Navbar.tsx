@@ -90,10 +90,10 @@ const Navbar: React.FC<NavbarProps> = ({ themeColor }) => {
   return (
     <nav className="w-full px-4 py-3 mb-6">
       <div
-        className={`flex items-center justify-between p-4 sm:p-5 rounded-2xl shadow-xl transition-all duration-300 border-2 border-[${ACCENT_COLOR}] bg-white`}
+        className={`flex flex-col sm:flex-row items-center sm:justify-between p-4 sm:p-5 rounded-2xl shadow-xl transition-all duration-300 border-2 border-[${ACCENT_COLOR}] bg-white gap-4 sm:gap-0`}
       >
         {/* Left Side: Logo & Title */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
           {/* Logo with gradient background */}
           <div
             className="p-2 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg hover:scale-105 transition-transform cursor-pointer"
@@ -109,7 +109,7 @@ const Navbar: React.FC<NavbarProps> = ({ themeColor }) => {
           </div>
 
           {/* Title & Subtitle */}
-          <div className="flex flex-col">
+          <div className="flex flex-col items-center sm:items-start">
             <span className="font-extrabold text-lg sm:text-2xl text-gray-900 tracking-tight leading-none">
               UIU Shuttle
             </span>
@@ -120,7 +120,7 @@ const Navbar: React.FC<NavbarProps> = ({ themeColor }) => {
         </div>
 
         {/* Right Side: TimeWeatherControl & Home Button */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
           <TimeWeatherControl />
         </div>
       </div>

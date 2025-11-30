@@ -8,22 +8,31 @@ import React, {
   useMemo,
 } from "react";
 import dynamic from "next/dynamic";
-import useSocket from "../hooks/useSocket";
-import { getRoutes } from "../lib/routes";
+import useSocket from "../hooks/useSocket"; // Assume this hook is available
+import { getRoutes } from "../lib/routes"; // Assume this utility is available
+import { v4 as uuidv4 } from "uuid"; // You'll need to install 'uuid' (npm install uuid @types/uuid)
+
+// Import Components
 import Navbar from "@/components/Navbar";
+import ScheduleModal from "../components/ScheduleModal";
+import RouteCard from "../components/RouteCard";
 import {
-  HiLocationMarker,
-  HiUser,
-  HiPhone,
-  HiClock,
-  HiCalendar,
-  HiX,
-  HiChevronRight,
-  HiOutlineLightningBolt,
-  HiTruck,
-  HiXCircle,
-  HiStop,
-} from "react-icons/hi";
+  ShareLocationButton,
+  ShareLocationPanel,
+} from "../components/ShareLocationPanel";
+import ProximityMessageOverlay, {
+  ProximityMessage,
+} from "../components/ProximityMessageOverlay"; // Import the new component and type
+
+// Import Types and Constants
+import {
+  Route,
+  SocketInterface,
+  LiveServerData,
+  THEME_COLOR,
+  ALL_ROUTE_DATA,
+  routeNames,
+} from "../lib/constants";
 
 // Use dynamic import for the map component to ensure it's client-side only
 const ShuttleMap = dynamic(() => import("../components/ShuttleMap"), {
@@ -31,360 +40,7 @@ const ShuttleMap = dynamic(() => import("../components/ShuttleMap"), {
 });
 
 // ====================================================================
-// ---- 1. TYPES & CONSTANTS ----
-// ====================================================================
-
-interface SocketInterface {
-  emit: (event: string, data: any) => void;
-}
-
-interface Route {
-  id: string;
-  name: string;
-  color?: string;
-}
-
-interface Position {
-  lat: number;
-  lng: number;
-}
-
-interface ServerRouteData {
-  route: Route;
-  position: Position | null;
-  eta: number | null; // Estimated Time of Arrival in seconds
-  sharers: number;
-}
-
-// Map from routeId to ServerRouteData
-interface LiveServerData {
-  [key: string]: ServerRouteData;
-}
-
-interface Schedule {
-  from: string;
-  to: string;
-  times: string[];
-  offDays?: string;
-}
-
-type Direction = "fromUIU" | "toUIU";
-
-interface RouteSchedules {
-  fromUIU: Schedule;
-  toUIU: Schedule;
-}
-
-interface Supervisor {
-  name: string;
-  contact: string;
-}
-
-interface RouteData {
-  schedules: RouteSchedules;
-  supervisor: Supervisor;
-  id: string; // Route ID for the server (e.g., 'kuril')
-}
-
-// Define colors for better UI theme consistency
-const THEME_COLOR = "#4F46E5"; // Indigo-600
-const ACCENT_COLOR = "#F68B1F"; // Original Orange
-
-// ====================================================================
-// ---- 2. CONSOLIDATED DATA ----
-// ====================================================================
-
-const ALL_ROUTE_DATA: Record<string, RouteData> = {
-  Aftab: {
-    id: "aftab",
-    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
-    schedules: {
-      fromUIU: {
-        from: "UIU",
-        to: "Aftab",
-        times: ["02:00 PM", "03:20 PM", "04:40 PM - 06:00 PM"],
-        offDays: "Thursday, Friday",
-      },
-      toUIU: {
-        from: "Aftab",
-        to: "UIU",
-        times: ["06:50 AM- 09:00 AM", "10:30 AM", "11:50 AM", "01:10 PM"],
-      },
-    },
-  },
-  "Notun Bazar": {
-    id: "notun",
-    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
-    schedules: {
-      fromUIU: {
-        from: "UIU",
-        to: "Notun Bazar",
-        times: [
-          "10:05 AM",
-          "11:25 AM",
-          "12:45 PM",
-          "02:05 PM",
-          "03:25 PM",
-          "04:40 PM",
-          "06:10 PM",
-          "05:45 PM",
-          "07:00 PM",
-          "09:40 PM",
-        ],
-        offDays: "Friday",
-      },
-      toUIU: {
-        from: "Notun Bazar",
-        to: "UIU",
-        times: [
-          "07:30 AM- 08:45 AM",
-          "09:25 AM- 09:35 AM",
-          "10:45 AM- 10:55 AM",
-          "12:05 PM- 12:15 PM",
-          "01:25 PM- 01:35 PM",
-          "02:45 PM- 02:55 PM",
-          "09:40 PM",
-        ],
-      },
-    },
-  },
-  Kuril: {
-    id: "kuril",
-    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
-    schedules: {
-      fromUIU: {
-        from: "UIU",
-        to: "Kuril",
-        times: ["11:10 AM", "01:40 PM", "04:10 PM"],
-        offDays: "Saturday",
-      },
-      toUIU: {
-        from: "Kuril",
-        to: "UIU",
-        times: [
-          "07:30 AM - 8:40 AM",
-          "10:00 AM - 11:10 AM",
-          "12:30 PM - 1:40 PM",
-        ],
-      },
-    },
-  },
-};
-
-// ====================================================================
-// ---- 3. TIME UTILITIES (Refactored) ----
-// ====================================================================
-
-interface ParsedTime {
-  hour: number;
-  minute: number;
-}
-
-/**
- * Parses a time string in "HH:MM AM/PM" format.
- * @param timeStr Time string.
- * @returns Parsed hour/minute object or null.
- */
-function parseTime(timeStr: string): ParsedTime | null {
-  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (!match) return null;
-
-  let hour = parseInt(match[1], 10);
-  const minute = parseInt(match[2], 10);
-  const period = match[3].toUpperCase();
-
-  if (period === "PM" && hour !== 12) hour += 12;
-  if (period === "AM" && hour === 12) hour = 0;
-
-  return { hour, minute };
-}
-
-/**
- * Checks if a given time (hour, minute) is after the current time.
- */
-function isAfterCurrent(hour: number, minute: number): boolean {
-  const now = new Date();
-  const nowHour = now.getHours();
-  const nowMinute = now.getMinutes();
-
-  return hour > nowHour || (hour === nowHour && minute > nowMinute);
-}
-
-/**
- * Checks if the current time is within a range [start, end].
- */
-function isWithinRange(start: ParsedTime, end: ParsedTime): boolean {
-  const now = new Date();
-  const h = now.getHours();
-  const m = now.getMinutes();
-
-  const afterStart = h > start.hour || (h === start.hour && m >= start.minute);
-  const beforeEnd = h < end.hour || (h === end.hour && m <= end.minute);
-
-  return afterStart && beforeEnd;
-}
-
-/**
- * Finds the next scheduled trip time string based on the current time.
- * For time ranges, it uses the start time for comparison.
- * @param times Array of time strings.
- * @returns The full time string of the next trip, or null.
- */
-function findNextTrip(times: string[]): string | null {
-  for (const timeStr of times) {
-    if (timeStr.includes("-")) {
-      const [startTime, endTime] = timeStr.split("-").map((s) => s.trim());
-      const start = parseTime(startTime);
-      const end = parseTime(endTime);
-      if (!start || !end) continue;
-
-      // Check if current time is within the range, or if the range start is in the future
-      if (
-        isWithinRange(start, end) ||
-        isAfterCurrent(start.hour, start.minute)
-      ) {
-        return timeStr;
-      }
-    } else {
-      const time = parseTime(timeStr);
-      if (!time) continue;
-      if (isAfterCurrent(time.hour, time.minute)) return timeStr;
-    }
-  }
-  return null;
-}
-
-// ====================================================================
-// ---- 4. SCHEDULE MODAL COMPONENT ----
-// ====================================================================
-
-function ScheduleModal({
-  routeName,
-  schedules,
-  onClose,
-}: {
-  routeName: string;
-  schedules: RouteSchedules;
-  onClose: () => void;
-}) {
-  const [activeTab, setActiveTab] = useState<Direction>("fromUIU");
-  const scheduleData = schedules[activeTab];
-  const nextTripTime = findNextTrip(scheduleData.times);
-
-  return (
-    <div className="fixed inset-0 bg-black/80 flex justify-center items-center p-4 z-50 backdrop-blur-sm overflow-auto">
-      <div
-        className="bg-white rounded-3xl max-w-lg w-full p-8 relative shadow-2xl transform scale-100 transition-transform duration-300
-        max-h-[90vh] overflow-y-auto"
-      >
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition p-2 rounded-full hover:bg-gray-100"
-          aria-label="Close"
-        >
-          <HiX className="h-6 w-6" />
-        </button>
-
-        <h2
-          className={`font-extrabold text-2xl text-center mb-6 text-indigo-700`}
-        >
-          🚌 {routeName} Schedule
-        </h2>
-
-        {/* Tab Navigation */}
-        <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
-          <button
-            onClick={() => setActiveTab("fromUIU")}
-            className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all ${
-              activeTab === "fromUIU"
-                ? `bg-indigo-600 text-white shadow-md`
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            UIU → {routeName}
-          </button>
-          <button
-            onClick={() => setActiveTab("toUIU")}
-            className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all ${
-              activeTab === "toUIU"
-                ? `bg-indigo-600 text-white shadow-md`
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            {routeName} → UIU
-          </button>
-        </div>
-
-        {/* Schedule Content */}
-        <div className="bg-white p-5 rounded-2xl shadow-inner border border-gray-100">
-          <p className="font-bold text-xl text-gray-800 mb-4 flex items-center">
-            <HiChevronRight className="h-5 w-5 mr-2 text-green-500" />
-            Trip: **{scheduleData.from}**
-            <span className="mx-2 text-gray-400">→</span> **{scheduleData.to}**
-          </p>
-
-          <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-            <HiClock className="h-5 w-5 mr-2 text-indigo-500" /> All Scheduled
-            Times:
-          </h3>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {scheduleData.times.map((t, i) => {
-              const isNext = t === nextTripTime;
-              return (
-                <li
-                  key={i}
-                  className={`text-center py-2 rounded-lg font-mono text-sm font-bold transition ${
-                    isNext
-                      ? "bg-yellow-500 text-gray-900 ring-4 ring-yellow-200 shadow-md"
-                      : "bg-indigo-500 text-white hover:bg-indigo-600"
-                  }`}
-                >
-                  {t}
-                  {isNext && (
-                    <span className="ml-1 text-xs font-extrabold flex items-center justify-center">
-                      <HiOutlineLightningBolt className="w-4 h-4 mr-1" /> NEXT
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-
-        {/* Next Trip Highlight */}
-        <div
-          className={`mt-4 p-4 rounded-xl shadow-inner border ${
-            nextTripTime
-              ? "bg-green-50 border-green-200"
-              : "bg-red-50 border-red-200"
-          }`}
-        >
-          {nextTripTime ? (
-            <p className="text-center font-extrabold text-green-700 text-lg flex items-center justify-center">
-              <HiClock className="h-6 w-6 mr-2 animate-pulse" />
-              Next Available Trip: {nextTripTime}
-            </p>
-          ) : (
-            <p className="text-center font-bold text-red-700 text-base">
-              No more scheduled trips for today. Check again tomorrow!
-            </p>
-          )}
-        </div>
-
-        {/* Off Days */}
-        <p className="mt-6 text-center text-sm font-semibold text-red-700 bg-red-50 border border-red-200 p-3 rounded-xl flex items-center justify-center">
-          <HiCalendar className="h-5 w-5 mr-2" />
-          SERVICE SUSPENDED ON: **
-          {schedules.fromUIU.offDays || "No Regular Off Days"}**
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ====================================================================
-// ---- 5. MAIN COMPONENT ----
+// ---- MAIN COMPONENT (Orchestrator) ----
 // ====================================================================
 
 export default function HomePage() {
@@ -397,26 +53,29 @@ export default function HomePage() {
   const [modalRoute, setModalRoute] = useState<string | null>(null);
   const [showSharePanel, setShowSharePanel] = useState(false);
 
-  // Default to 'kuril' if the array isn't populated yet
-  const [routeId, setRouteId] = useState<string>("kuril");
+  // NEW STATE: Messages for the floating overlay
+  const [proximityMessages, setProximityMessages] = useState<
+    ProximityMessage[]
+  >([]);
+
+  // Default to the ID of the 'Kuril' route
+  const [routeId, setRouteId] = useState<string>(ALL_ROUTE_DATA["Kuril"].id);
   const [sharing, setSharing] = useState(false);
   const watchIdRef = useRef<number | null>(null);
 
-  // Map route names to server data
-  const routeNames = useMemo(() => Object.keys(ALL_ROUTE_DATA), []);
+  // --- GEOLOCATION AND SHARING LOGIC (UNCHANGED) ---
 
-  // Fetch Routes from external source (assuming getRoutes provides name/id mapping)
+  // Fetch Routes from external source
   useEffect(() => {
     getRoutes().then((r) => {
       setRoutes(r || []);
       if (r && r.length > 0) {
-        // Use the ID of the first fetched route as the default selection
         setRouteId(r[0].id.toLowerCase());
       }
     });
   }, []);
 
-  // Clean up geolocation watch on unmount or when `sharing` is changed to false externally
+  // Clean up geolocation watch on unmount
   useEffect(() => {
     return () => {
       if (watchIdRef.current != null) {
@@ -470,81 +129,59 @@ export default function HomePage() {
     setShowSharePanel(false);
   }, [socket, routeId, routes, stopSharing]);
 
-  // --- Helper function to render the live status UI ---
-  const renderLiveStatus = (liveData: ServerRouteData | undefined) => {
-    if (!liveData) {
-      return (
-        <div className="flex items-center gap-2 text-gray-500 bg-gray-100 p-2 rounded-lg text-sm font-semibold">
-          <HiXCircle className="h-5 w-5" />
-          <span>No Live Tracking</span>
-        </div>
-      );
-    }
-
-    const isRunning = liveData.position !== null && liveData.sharers > 0;
-    const etaMinutes = liveData.eta ? Math.ceil(liveData.eta / 60) : null;
-
-    let statusText;
-    let statusColor;
-    let StatusIcon;
-
-    if (isRunning) {
-      statusText = "Bus Live";
-      statusColor = "text-green-600";
-      StatusIcon = HiTruck;
-    } else if (liveData.sharers > 0) {
-      statusText = "Awaiting Position";
-      statusColor = "text-yellow-600";
-      StatusIcon = HiStop;
+  // Toggle Share Panel or Stop Sharing if already active
+  const handleShareButtonClick = () => {
+    if (sharing) {
+      stopSharing();
     } else {
-      statusText = "Inactive";
-      statusColor = "text-red-500";
-      StatusIcon = HiXCircle;
+      setShowSharePanel(!showSharePanel);
     }
-
-    return (
-      <div className="grid grid-cols-2 gap-3 mt-3">
-        {/* 1. Bus Status */}
-        <div
-          className={`flex items-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 ${statusColor}`}
-        >
-          <StatusIcon className="h-5 w-5 font-bold" />
-          <span className="text-sm font-extrabold">{statusText}</span>
-        </div>
-
-        {/* 2. ETA to UIU */}
-        <div
-          className={`flex items-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 ${
-            isRunning ? "text-indigo-600" : "text-gray-500"
-          }`}
-        >
-          <HiClock className="h-5 w-5" />
-          <span className="text-sm font-semibold">
-            ETA:{" "}
-            {isRunning && etaMinutes !== null ? `${etaMinutes} min` : "N/A"}
-          </span>
-        </div>
-
-        {/* 3. Sharer Count (Full-width for better display) */}
-        <div className="col-span-2 flex items-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 text-gray-700">
-          <HiUser className="h-5 w-5 text-purple-500" />
-          <span className="text-sm font-semibold">
-            Sharers: **{liveData.sharers}** on Route
-          </span>
-        </div>
-      </div>
-    );
   };
 
+  // --- NEW SOCKET LISTENER AND MESSAGE HANDLER ---
+
+  // Function to dismiss a message
+  const handleDismissMessage = useCallback((id: string) => {
+    setProximityMessages((prev) => prev.filter((msg) => msg.id !== id));
+  }, []);
+
+  // Effect to listen for proximity messages
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleProximityMessages = (payload: {
+      messages: Omit<ProximityMessage, "id">[];
+    }) => {
+      // Add a unique ID to each message for React keying and dismissal
+      const newMessages: ProximityMessage[] = payload.messages.map((msg) => ({
+        ...msg,
+        id: uuidv4(), // Use UUID for uniqueness
+      }));
+
+      // Update the state with the new messages (the server already limits to max 3)
+      setProximityMessages(newMessages);
+    };
+
+    // Since the server logic is simplified to emit to all non-sharing users,
+    // we listen globally. In a real app, this would be for the user's specific location.
+    socket.on("user:proximityMessages", handleProximityMessages);
+
+    return () => {
+      socket.off("user:proximityMessages", handleProximityMessages);
+    };
+  }, [socket]); // Re-run if socket changes
+
+  // --- JSX RENDER ---
+
   return (
-    <main className="w-full max-w-6xl mx-auto font-sans min-h-screen">
+    <main className="w-full max-w-6xl mx-auto font-sans min-h-screen relative">
       <Navbar themeColor={THEME_COLOR} />
 
       {/* ---- Live Map Section ---- */}
       <section className="mb-10 mt-8">
         <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
           <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-3"></span>
-          Live Map 🛰️
+          **Live Map** 🛰️
         </h2>
         <div className="h-[60vh] rounded-3xl shadow-2xl overflow-hidden border-4 border-white">
           <ShuttleMap routes={routes || []} serverData={data} />
@@ -553,10 +190,10 @@ export default function HomePage() {
 
       <hr className="my-8 border-gray-200" />
 
-      {/* ---- Route Cards ---- */}
+      {/* ---- Route Cards Section ---- */}
       <section className="mb-10">
         <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
-          Route Information & Live Status 🚦
+          **Route Information & Live Status** 🚦
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {routeNames.map((routeName) => {
@@ -564,41 +201,13 @@ export default function HomePage() {
             const liveData = data ? data[routeData.id] : undefined;
 
             return (
-              <div
+              <RouteCard
                 key={routeName}
-                className="bg-white rounded-3xl shadow-xl p-6 border-t-8 border-indigo-500 hover:shadow-2xl hover:scale-[1.02] transform transition-all duration-300 overflow-hidden group"
-              >
-                <h3 className="text-gray-900 font-bold text-xl mb-3 flex items-center">
-                  <span className={`text-[${ACCENT_COLOR}] mr-2`}>📍</span>
-                  {routeName}
-                </h3>
-
-                {/* LIVE STATUS */}
-                {renderLiveStatus(liveData)}
-                <hr className="my-4 border-gray-100" />
-                {/* END LIVE STATUS */}
-
-                <div className="space-y-3 mb-4 text-gray-700 text-sm">
-                  <div className="flex items-center gap-2">
-                    <HiUser className="h-5 w-5 text-indigo-500" />
-                    <span className="font-semibold">
-                      Supervisor: {routeData.supervisor.name}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <HiPhone className="h-5 w-5 text-indigo-500" />
-                    <span>Contact: {routeData.supervisor.contact}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setModalRoute(routeName)}
-                  className={`w-full py-3 mt-2 rounded-xl text-white font-bold text-base bg-indigo-600 hover:bg-indigo-700 transition-all duration-300 shadow-lg group-hover:shadow-xl group-hover:bg-indigo-800`}
-                >
-                  View Schedule
-                </button>
-              </div>
+                routeName={routeName}
+                routeData={routeData}
+                liveData={liveData}
+                onViewSchedule={setModalRoute}
+              />
             );
           })}
         </div>
@@ -613,80 +222,25 @@ export default function HomePage() {
         />
       )}
 
-      {/* ---- Share Location Floating Button ---- */}
-      <button
-        onClick={() => {
-          setShowSharePanel(!showSharePanel);
-        }}
-        className={`fixed bottom-8 right-8 z-50 transition-all duration-300 ${
-          sharing
-            ? "bg-red-500 hover:bg-red-600"
-            : `bg-[${ACCENT_COLOR}] hover:bg-[#D47113]`
-        } text-white px-5 py-4 rounded-full shadow-xl text-lg font-semibold flex items-center space-x-2`}
-      >
-        <HiLocationMarker className="h-6 w-6" />
-        <span>{sharing ? "Sharing Live" : "Share Location"}</span>
-      </button>
+      {/* ---- FLOATING PROXIMITY MESSAGES ---- */}
+      <ProximityMessageOverlay
+        messages={proximityMessages}
+        onDismiss={handleDismissMessage}
+      />
 
-      {/* ---- Share Panel ---- */}
-      {showSharePanel && (
-        <div className="fixed bottom-20 right-4 w-72 sm:w-80 bg-white rounded-2xl shadow-xl p-3 sm:p-5 z-50 border-t-4 border-indigo-500 animate-slide-in">
-          <div className="flex justify-between items-center mb-2 sm:mb-3">
-            <h3 className="font-bold text-lg sm:text-xl text-gray-800">
-              Start Sharing 📢
-            </h3>
-            <button
-              className="text-gray-400 hover:text-red-500 text-lg sm:text-xl font-bold transition"
-              onClick={() => setShowSharePanel(false)}
-              aria-label="Close share panel"
-            >
-              <HiX />
-            </button>
-          </div>
+      {/* ---- Share Location Controls ---- */}
+      <ShareLocationButton sharing={sharing} onClick={handleShareButtonClick} />
 
-          <p className="text-xs sm:text-sm mt-1 sm:mt-2 text-indigo-700 bg-indigo-50 p-1 sm:p-2 rounded-lg font-medium">
-            💡 **When You are in a Shuttle Bus.**
-          </p>
-
-          <label
-            htmlFor="route-select"
-            className="block text-gray-700 mt-2 sm:mt-4 mb-1 sm:mb-2 font-medium text-sm"
-          >
-            Select Route:
-          </label>
-
-          <select
-            id="route-select"
-            value={routeId}
-            onChange={(e) => setRouteId(e.target.value)}
-            className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors text-sm"
-          >
-            {routes.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={!sharing ? startSharing : stopSharing}
-            className={`w-full py-2 sm:py-3 mt-3 sm:mt-4 rounded-lg text-white font-bold text-sm sm:text-base shadow-md transition-all ${
-              !sharing
-                ? "bg-emerald-500 hover:bg-emerald-600"
-                : "bg-rose-500 hover:bg-rose-600"
-            }`}
-          >
-            {!sharing ? "Activate Live Tracker" : "Stop Tracking"}
-          </button>
-
-          {/* Status Message */}
-          {sharing && (
-            <p className="text-center text-xs sm:text-sm mt-2 text-emerald-700 font-semibold">
-              Location is being shared live on route **
-              {routes.find((r) => r.id === routeId)?.name || routeId}**.
-            </p>
-          )}
-        </div>
+      {showSharePanel && !sharing && (
+        <ShareLocationPanel
+          routes={routes}
+          routeId={routeId}
+          setRouteId={setRouteId}
+          sharing={sharing}
+          startSharing={startSharing}
+          stopSharing={stopSharing}
+          setShowSharePanel={setShowSharePanel}
+        />
       )}
 
       <footer className="text-center text-gray-500 text-sm mt-12 py-4 border-t border-gray-200">
