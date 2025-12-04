@@ -62,7 +62,7 @@ export default function ShuttleMap({ routes, serverData, center_coords }: any) {
   return (
     <MapContainer
       center={center_coords}
-      zoom={14}
+      zoom={13}
       className="rounded-2xl shadow-inner border border-gray-200"
       style={{ height: "100%", width: "100%", zIndex: 0 }}
     >
