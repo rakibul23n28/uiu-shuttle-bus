@@ -83,6 +83,16 @@ export default function HomePage() {
       <footer className="text-center text-gray-500 text-sm mt-12 py-4 border-t border-gray-200">
         © {new Date().getFullYear()} UIU Shuttle Tracker. Designed for a better
         commute experience.
+        <div className="flex justify-center mt-2">
+          <a
+            href="https://github.com/your-github-username/university-shuttle-bus"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:text-blue-700 transition"
+          >
+            View Source Code on GitHub and Contribute!
+          </a>
+        </div>
       </footer>
     </main>
   );
