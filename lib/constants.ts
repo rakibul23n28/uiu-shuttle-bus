@@ -83,7 +83,7 @@ export const ALL_ROUTE_DATA: Record<string, RouteData> = {
         from: "UIU",
         to: "Aftab",
         times: ["02:00 PM", "03:20 PM", "04:40 PM - 06:00 PM"],
-        offDays: "Thursday, Friday",
+        offDays: "Monday, Thursday, Friday",
       },
       toUIU: {
         from: "Aftab",
@@ -112,7 +112,7 @@ export const ALL_ROUTE_DATA: Record<string, RouteData> = {
           "07:00 PM",
           "09:40 PM",
         ],
-        offDays: "Friday",
+        offDays: "Monday, Thursday, Friday",
       },
       toUIU: {
         from: "Notun Bazar",
@@ -138,7 +138,7 @@ export const ALL_ROUTE_DATA: Record<string, RouteData> = {
         from: "UIU",
         to: "Kuril",
         times: ["11:10 AM", "01:40 PM", "04:10 PM"],
-        offDays: "Saturday",
+        offDays: "Monday, Thursday, Friday",
       },
       toUIU: {
         from: "Kuril",
