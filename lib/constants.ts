@@ -25,6 +25,13 @@ export interface ServerRouteData {
   position: Position | null;
   eta: number | null; // Estimated Time of Arrival in seconds
   sharers: number;
+  buses: {
+    [busNumber: string]: {
+      position: Position | null;
+      sharers: number;
+      eta: number | null; // Estimated Time of Arrival in seconds
+    };
+  };
 }
 
 // Map from routeId to ServerRouteData
@@ -54,6 +61,7 @@ export interface Supervisor {
 export interface RouteData {
   schedules: RouteSchedules;
   supervisor: Supervisor;
+  center_coords: [number, number];
   id: string; // Route ID for the server (e.g., 'kuril')
 }
 
@@ -68,7 +76,8 @@ export const ACCENT_COLOR = "#F68B1F"; // Original Orange
 export const ALL_ROUTE_DATA: Record<string, RouteData> = {
   Aftab: {
     id: "aftab",
-    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
+    supervisor: { name: "Mr. Zakir", contact: "+880-1738-420771" },
+    center_coords: [23.781401043540665, 90.44038227403183],
     schedules: {
       fromUIU: {
         from: "UIU",
@@ -85,7 +94,8 @@ export const ALL_ROUTE_DATA: Record<string, RouteData> = {
   },
   "Notun Bazar": {
     id: "notun",
-    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
+    supervisor: { name: "Mr. Zakir", contact: "+880-1738-420771" },
+    center_coords: [23.799000502105223, 90.43751857157083],
     schedules: {
       fromUIU: {
         from: "UIU",
@@ -121,7 +131,8 @@ export const ALL_ROUTE_DATA: Record<string, RouteData> = {
   },
   Kuril: {
     id: "kuril",
-    supervisor: { name: "Mr. Rahim", contact: "+880-170-0000001" },
+    supervisor: { name: "Mr. Zakir", contact: "+880-1738-420771" },
+    center_coords: [23.815499924030963, 90.43801031094489],
     schedules: {
       fromUIU: {
         from: "UIU",
@@ -142,4 +153,22 @@ export const ALL_ROUTE_DATA: Record<string, RouteData> = {
   },
 };
 
-export const routeNames = Object.keys(ALL_ROUTE_DATA);
+// ====================================================================
+// ---- NEW TYPE DEFINITION ----
+// ====================================================================
+
+/**
+ * Defines the type for valid route names by extracting keys from ALL_ROUTE_DATA.
+ * This provides type safety when referencing a specific route name.
+ * Type: "Aftab" | "Notun Bazar" | "Kuril"
+ */
+export type RouteName = keyof typeof ALL_ROUTE_DATA;
+
+// ====================================================================
+// ---- CONSTANTS (Updated) ----
+// ====================================================================
+
+// The type is now correctly inferred as RouteName[]
+export const routeNames: RouteName[] = Object.keys(
+  ALL_ROUTE_DATA
+) as RouteName[];

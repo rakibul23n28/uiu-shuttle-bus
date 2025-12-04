@@ -1,247 +1,84 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
-import dynamic from "next/dynamic";
-import useSocket from "../hooks/useSocket"; // Assume this hook is available
-import { getRoutes } from "../lib/routes"; // Assume this utility is available
-import { v4 as uuidv4 } from "uuid"; // You'll need to install 'uuid' (npm install uuid @types/uuid)
-
-// Import Components
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { THEME_COLOR, routeNames, Route } from "../lib/constants";
+import { getRoutes } from "../lib/routes";
 import Navbar from "@/components/Navbar";
-import ScheduleModal from "../components/ScheduleModal";
-import RouteCard from "../components/RouteCard";
-import {
-  ShareLocationButton,
-  ShareLocationPanel,
-} from "../components/ShareLocationPanel";
-import ProximityMessageOverlay, {
-  ProximityMessage,
-} from "../components/ProximityMessageOverlay"; // Import the new component and type
 
-// Import Types and Constants
-import {
-  Route,
-  SocketInterface,
-  LiveServerData,
-  THEME_COLOR,
-  ALL_ROUTE_DATA,
-  routeNames,
-} from "../lib/constants";
-
-// Use dynamic import for the map component to ensure it's client-side only
-const ShuttleMap = dynamic(() => import("../components/ShuttleMap"), {
-  ssr: false,
-});
-
-// ====================================================================
-// ---- MAIN COMPONENT (Orchestrator) ----
-// ====================================================================
+type RouteKey = keyof typeof routeNames;
 
 export default function HomePage() {
-  const { data, socket } = useSocket() as {
-    data: LiveServerData | null;
-    socket: SocketInterface | null;
-  };
-
   const [routes, setRoutes] = useState<Route[]>([]);
-  const [modalRoute, setModalRoute] = useState<string | null>(null);
-  const [showSharePanel, setShowSharePanel] = useState(false);
 
-  // NEW STATE: Messages for the floating overlay
-  const [proximityMessages, setProximityMessages] = useState<
-    ProximityMessage[]
-  >([]);
-
-  // Default to the ID of the 'Kuril' route
-  const [routeId, setRouteId] = useState<string>(ALL_ROUTE_DATA["Kuril"].id);
-  const [sharing, setSharing] = useState(false);
-  const watchIdRef = useRef<number | null>(null);
-
-  // --- GEOLOCATION AND SHARING LOGIC (UNCHANGED) ---
-
-  // Fetch Routes from external source
   useEffect(() => {
-    getRoutes().then((r) => {
-      setRoutes(r || []);
-      if (r && r.length > 0) {
-        setRouteId(r[0].id.toLowerCase());
-      }
-    });
+    getRoutes().then((r) => setRoutes(r || []));
   }, []);
 
-  // Clean up geolocation watch on unmount
-  useEffect(() => {
-    return () => {
-      if (watchIdRef.current != null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-    };
-  }, []);
-
-  // Stop Sharing - Refactored as a stable function
-  const stopSharing = useCallback(() => {
-    if (!socket) return;
-
-    if (watchIdRef.current != null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-
-    socket.emit("share:stop", {});
-    setSharing(false);
-  }, [socket]);
-
-  // Start Sharing Location - Refactored as a stable function
-  const startSharing = useCallback(() => {
-    if (!socket) {
-      alert("Connection not ready. Please try again.");
-      return;
-    }
-
-    const selectedRoute = routes.find((r) => r.id === routeId);
-    if (!selectedRoute) {
-      alert("Please select a valid route.");
-      return;
-    }
-
-    socket.emit("share:start", { routeId });
-
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        socket.emit("share:pos", { lat, lng, speed: pos.coords.speed || 0 });
-      },
-      (err) => {
-        alert("Geolocation Error: " + err.message);
-        stopSharing();
-      },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
-    );
-
-    watchIdRef.current = id;
-    setSharing(true);
-    setShowSharePanel(false);
-  }, [socket, routeId, routes, stopSharing]);
-
-  // Toggle Share Panel or Stop Sharing if already active
-  const handleShareButtonClick = () => {
-    if (sharing) {
-      stopSharing();
-    } else {
-      setShowSharePanel(!showSharePanel);
-    }
-  };
-
-  // --- NEW SOCKET LISTENER AND MESSAGE HANDLER ---
-
-  // Function to dismiss a message
-  const handleDismissMessage = useCallback((id: string) => {
-    setProximityMessages((prev) => prev.filter((msg) => msg.id !== id));
-  }, []);
-
-  // Effect to listen for proximity messages
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleProximityMessages = (payload: {
-      messages: Omit<ProximityMessage, "id">[];
-    }) => {
-      // Add a unique ID to each message for React keying and dismissal
-      const newMessages: ProximityMessage[] = payload.messages.map((msg) => ({
-        ...msg,
-        id: uuidv4(), // Use UUID for uniqueness
-      }));
-
-      // Update the state with the new messages (the server already limits to max 3)
-      setProximityMessages(newMessages);
-    };
-
-    // Since the server logic is simplified to emit to all non-sharing users,
-    // we listen globally. In a real app, this would be for the user's specific location.
-    socket.on("user:proximityMessages", handleProximityMessages);
-
-    return () => {
-      socket.off("user:proximityMessages", handleProximityMessages);
-    };
-  }, [socket]); // Re-run if socket changes
-
-  // --- JSX RENDER ---
+  const generateRouteSlug = (name: string): string =>
+    encodeURIComponent(name.toLowerCase());
 
   return (
-    <main className="w-full max-w-6xl mx-auto font-sans min-h-screen relative">
+    <main className="w-full max-w-6xl mx-auto font-sans min-h-screen relative p-4 sm:p-6 lg:p-8">
       <Navbar themeColor={THEME_COLOR} />
 
-      {/* ---- Live Map Section ---- */}
-      <section className="mb-10 mt-8">
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
-          <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-3"></span>
-          **Live Map** 🛰️
-        </h2>
-        <div className="h-[60vh] rounded-3xl shadow-2xl overflow-hidden border-4 border-white">
-          <ShuttleMap routes={routes || []} serverData={data} />
-        </div>
-      </section>
+      <hr className="my-10 border-blue-200" />
 
-      <hr className="my-8 border-gray-200" />
-
-      {/* ---- Route Cards Section ---- */}
+      {/* Route Cards */}
       <section className="mb-10">
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
-          **Route Information & Live Status** 🚦
+        <h2
+          className="text-3xl font-extrabold text-gray-900 mb-8 pb-3 border-b-4 
+                       border-gradient-to-r from-blue-400 via-blue-500 to-blue-600"
+        >
+          Explore Available Shuttle Routes 🗺️
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {routeNames.map((routeName) => {
-            const routeData = ALL_ROUTE_DATA[routeName];
-            const liveData = data ? data[routeData.id] : undefined;
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          {routeNames.map((routeName, idx) => {
+            const routeSlug = generateRouteSlug(routeName);
+
+            // Optional: Different clip-path shapes for each card
+            const clipPaths = [
+              "polygon(0% 0%, 100% 0%, 90% 100%, 0% 90%)",
+              "polygon(0% 0%, 100% 10%, 100% 100%, 10% 100%)",
+              "polygon(10% 0%, 100% 0%, 90% 100%, 0% 90%)",
+              "polygon(0% 10%, 100% 0%, 100% 90%, 0% 100%)",
+            ];
+            const clipPath = clipPaths[idx % clipPaths.length];
 
             return (
-              <RouteCard
+              <Link
                 key={routeName}
-                routeName={routeName}
-                routeData={routeData}
-                liveData={liveData}
-                onViewSchedule={setModalRoute}
-              />
+                href={`/route/${routeSlug}`}
+                passHref
+                className="group block"
+              >
+                <div
+                  className="relative p-6 bg-gradient-to-br from-white via-blue-50 to-white
+                             shadow-md hover:shadow-2xl border-2 border-transparent hover:border-blue-400
+                             transition-transform duration-300 transform hover:-translate-y-2 hover:scale-105"
+                  style={{ clipPath }}
+                >
+                  {/* Decorative corner shapes */}
+                  <span className="absolute top-0 right-0 w-6 h-6 bg-blue-400 rounded-bl-full opacity-40"></span>
+                  <span className="absolute bottom-0 left-0 w-8 h-8 bg-blue-300 rounded-tr-full opacity-30"></span>
+
+                  <h3 className="text-2xl font-bold text-gray-800 group-hover:text-blue-700 transition mb-2">
+                    {routeName}
+                  </h3>
+
+                  <span className="inline-block text-xs font-semibold text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full mb-3">
+                    UIU Route
+                  </span>
+
+                  <p className="text-sm text-gray-500">
+                    View Live Map & Schedule Details
+                  </p>
+                </div>
+              </Link>
             );
           })}
         </div>
       </section>
-
-      {/* ---- Schedule Modal (Conditional Rendering) ---- */}
-      {modalRoute && ALL_ROUTE_DATA[modalRoute] && (
-        <ScheduleModal
-          routeName={modalRoute}
-          schedules={ALL_ROUTE_DATA[modalRoute].schedules}
-          onClose={() => setModalRoute(null)}
-        />
-      )}
-
-      {/* ---- FLOATING PROXIMITY MESSAGES ---- */}
-      <ProximityMessageOverlay
-        messages={proximityMessages}
-        onDismiss={handleDismissMessage}
-      />
-
-      {/* ---- Share Location Controls ---- */}
-      <ShareLocationButton sharing={sharing} onClick={handleShareButtonClick} />
-
-      {showSharePanel && !sharing && (
-        <ShareLocationPanel
-          routes={routes}
-          routeId={routeId}
-          setRouteId={setRouteId}
-          sharing={sharing}
-          startSharing={startSharing}
-          stopSharing={stopSharing}
-          setShowSharePanel={setShowSharePanel}
-        />
-      )}
 
       <footer className="text-center text-gray-500 text-sm mt-12 py-4 border-t border-gray-200">
         © {new Date().getFullYear()} UIU Shuttle Tracker. Designed for a better

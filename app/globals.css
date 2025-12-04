@@ -1,5 +1,27 @@
 @import "tailwindcss";
 
+/* Chrome, Edge, Safari */
+.flex-1::-webkit-scrollbar {
+  width: 6px;
+}
+.flex-1::-webkit-scrollbar-track {
+  background: #e5e7eb; /* light gray track */
+  border-radius: 10px;
+}
+.flex-1::-webkit-scrollbar-thumb {
+  background: #3b82f6; /* blue thumb */
+  border-radius: 10px;
+}
+.flex-1::-webkit-scrollbar-thumb:hover {
+  background: #2563eb; /* darker blue on hover */
+}
+
+/* Firefox */
+.flex-1 {
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #e5e7eb;
+}
+
 html,
 body,
 #__next {

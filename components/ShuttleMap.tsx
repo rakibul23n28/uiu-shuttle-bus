@@ -10,151 +10,138 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { FaBus, FaFlagCheckered, FaMapMarkerAlt } from "react-icons/fa";
-
-// Import the correct static rendering function
 import { renderToStaticMarkup } from "react-dom/server";
 
-// Define the central coordinates (UIU location)
-const CENTER_COORDS: [number, number] = [23.799000502105223, 90.43751857157083];
-
-// 1. Custom Icon Definitions
-// --- START/END MARKERS (Simple Pin) ---
+// ---- Stop Marker (Modern Style) ----
 const stopMarkerIcon = (color: string) =>
   new L.DivIcon({
     className: "custom-div-icon",
     html: renderToStaticMarkup(
-      <FaMapMarkerAlt className="text-2xl" style={{ color: color }} />
+      <FaMapMarkerAlt className="text-2xl drop-shadow-md" style={{ color }} />
     ),
-    iconSize: [25, 25],
-    iconAnchor: [12, 25],
-    popupAnchor: [0, -20],
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
   });
 
-// --- LIVE BUS MARKER (Bus Icon) ---
-const busMarkerIcon = (color: string) =>
+// ---- Bus Marker (Modern Gradient + Pulse) ----
+const busMarkerIcon = (color: string, busNumber: string) =>
   new L.DivIcon({
-    className: "bus-marker-icon animate-pulse",
+    className: "bus-marker-icon",
     html: renderToStaticMarkup(
-      <div
-        className="p-2 rounded-full shadow-lg border-2 border-white"
-        style={{ backgroundColor: color }}
-      >
-        <FaBus className="text-white text-xl" />
+      <div className="flex flex-col items-center -mt-5 relative">
+        {/* Bus Number Label */}
+        <div className="px-2 py-0.5 bg-white bg-opacity-90 text-black text-xs text-center font-bold rounded-full shadow-md absolute -top-7 z-10">
+          Bus {busNumber}
+        </div>
+        {/* Bus Icon with Gradient Pulse */}
+        <div
+          className="p-2 rounded-full shadow-lg border-2 border-white animate-bounce"
+          style={{
+            background: `linear-gradient(135deg, ${color} 0%, #ffffff 100%)`,
+          }}
+        >
+          <FaBus className="text-white text-xl drop-shadow-md" />
+        </div>
       </div>
     ),
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -18],
+    iconSize: [42, 42],
+    iconAnchor: [21, 42],
   });
 
-// --- UIU/END MARKER (Checkered Flag) ---
+// ---- University Marker (Modern Flag) ----
 const universityIcon = new L.DivIcon({
   className: "custom-div-icon",
   html: renderToStaticMarkup(
-    <FaFlagCheckered className="text-3xl text-green-600" />
+    <FaFlagCheckered className="text-3xl text-green-500 drop-shadow-lg" />
   ),
-  iconSize: [30, 30],
-  iconAnchor: [15, 30],
-  popupAnchor: [0, -30],
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
 });
 
-// REMOVED: TimeWeatherControl component (Moved to Navbar)
-// REMOVED: MapContextualControls component (No longer needed)
-
-// 4. Main Map Component
-export default function ShuttleMap({ routes, serverData }: any) {
+export default function ShuttleMap({ routes, serverData, center_coords }: any) {
   return (
     <MapContainer
-      center={CENTER_COORDS}
-      zoom={13}
-      className="rounded-xl shadow-inner border border-gray-200"
+      center={center_coords}
+      zoom={14}
+      className="rounded-2xl shadow-inner border border-gray-200"
       style={{ height: "100%", width: "100%", zIndex: 0 }}
     >
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+        attribution="© OpenStreetMap contributors"
       />
-
-      {/* REMOVED: <MapContextualControls /> */}
 
       {routes.map((r: any) => {
         const routeColor = r.color || "#4F46E5";
-        const liveData = serverData && serverData[r.id];
-        const isBusActive = liveData && liveData.position;
+        const liveRouteData = serverData?.[r.id];
+        const buses = liveRouteData?.buses || {};
 
         return (
           <React.Fragment key={r.id}>
-            {/* Polyline for route */}
+            {/* Route Line */}
             <Polyline
               positions={r.coords.map((c: any) => [c[0], c[1]])}
               pathOptions={{
                 color: routeColor,
                 weight: 6,
-                opacity: isBusActive ? 0.9 : 0.6,
-                dashArray: isBusActive ? undefined : "5, 10",
+                opacity: Object.keys(buses).length > 0 ? 0.9 : 0.5,
+                dashArray: Object.keys(buses).length > 0 ? undefined : "8,12",
+                className: "transition-all duration-500",
               }}
             />
 
-            {/* START Marker (Away from UIU) */}
+            {/* Start Marker */}
             {r.coords.length > 0 && (
               <Marker position={r.coords[0]} icon={stopMarkerIcon(routeColor)}>
                 <Popup>
-                  <div className="font-semibold text-center">
-                    <p className="text-lg text-indigo-700">{r.name}</p>
-                    <p className="text-sm text-gray-500">Starting Point</p>
-                  </div>
+                  <b>{r.name}</b>
+                  <p>Start</p>
                 </Popup>
               </Marker>
             )}
 
-            {/* END Marker (UIU) */}
+            {/* End Marker */}
             {r.coords.length > 0 && (
               <Marker
                 position={r.coords[r.coords.length - 1]}
                 icon={universityIcon}
               >
                 <Popup>
-                  <div className="font-semibold text-center">
-                    <p className="text-lg text-green-700">UIU Campus</p>
-                    <p className="text-sm text-gray-500">
-                      Destination/Drop-off Point
-                    </p>
-                  </div>
+                  <b>UIU Campus</b>
+                  <p>Destination</p>
                 </Popup>
               </Marker>
             )}
 
-            {/* Live bus marker */}
-            {isBusActive && (
-              <Marker
-                position={[liveData.position.lat, liveData.position.lng]}
-                icon={busMarkerIcon(routeColor)}
-              >
-                <Popup>
-                  <div className="p-1 font-sans">
-                    <h4 className="font-bold text-lg text-center text-gray-900 mb-1 flex items-center justify-center">
-                      <FaBus className="mr-2 text-indigo-500" /> **Live Bus:{" "}
-                      {r.name}**
-                    </h4>
-                    <hr className="my-1" />
-                    <div className="text-sm space-y-1">
+            {/* Live Buses */}
+            {Object.entries(buses).map(([busNumber, busInfo]: any) => {
+              if (!busInfo.position) return null;
+              return (
+                <Marker
+                  key={busNumber}
+                  position={[busInfo.position.lat, busInfo.position.lng]}
+                  icon={busMarkerIcon(routeColor, busNumber)}
+                >
+                  <Popup>
+                    <div className="font-sans">
+                      <h4 className="font-bold text-lg flex items-center gap-2">
+                        <FaBus className="text-indigo-500" /> Bus {busNumber}
+                      </h4>
+                      <hr className="my-1 border-gray-300" />
                       <p>
-                        <strong className="text-gray-600">Sharers:</strong>{" "}
-                        {liveData.sharers || 1}
+                        <strong>Sharers:</strong> {busInfo.sharers || 1}
                       </p>
                       <p>
-                        <strong className="text-gray-600">ETA to UIU:</strong>{" "}
-                        <span className="font-extrabold text-green-600">
-                          {liveData.eta
-                            ? Math.round(liveData.eta / 60) + " min"
-                            : "Calculating..."}
-                        </span>
+                        <strong>ETA:</strong>{" "}
+                        {busInfo.eta
+                          ? Math.round(busInfo.eta / 60) + " min"
+                          : "Calculating..."}
                       </p>
                     </div>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
+                  </Popup>
+                </Marker>
+              );
+            })}
           </React.Fragment>
         );
       })}
