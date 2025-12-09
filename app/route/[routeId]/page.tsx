@@ -273,21 +273,17 @@ export default function DedicatedRoutePage() {
       <div className="mt-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-all"
+          className="inline-flex items-center bg-blue-600 gap-3 text-white mb-6 hover:text-white hover:bg-blue-600 rounded-lg py-2 px-3 transition-all duration-300 shadow-md hover:shadow-lg"
         >
-          <span className="text-xl">←</span>
-          <span className="text-lg font-medium">Back to All Routes</span>
+          <span className="text-xl transform hover:rotate-180 transition-all duration-300">
+            ←
+          </span>
+          <span className="text-lg font-semibold tracking-wide uppercase">
+            Back to All Routes
+          </span>
         </Link>
       </div>
-      {/* Header */}
-      <section className="mt-6 mb-8">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
-          Live Status: {routeName!} – UIU 🚦
-        </h1>
-        <p className="text-gray-500 mt-1 text-lg">
-          Real-time tracking & detailed route information.
-        </p>
-      </section>
+
       {/* Map */}
       <section className="mb-12">
         <h2 className="text-2xl font-bold text-gray-700 flex items-center gap-3 mb-4">
@@ -305,10 +301,6 @@ export default function DedicatedRoutePage() {
       </section>
       {/* Route Info */}
       <section className="mb-10">
-        <h2 className="text-3xl font-bold text-gray-900 border-b pb-2 mb-6">
-          Route Information ℹ️
-        </h2>
-
         <RouteCard
           routeName={routeName!}
           routeData={routeData}
