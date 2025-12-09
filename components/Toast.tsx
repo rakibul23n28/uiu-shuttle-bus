@@ -42,8 +42,6 @@ export function Toast({ message, onClose }: ToastProps) {
     console.log(message);
 
     if (message) {
-      console.log("ndjkshdjkshdj");
-
       // Set the timer for 3000ms
       timer = setTimeout(() => {
         onClose();

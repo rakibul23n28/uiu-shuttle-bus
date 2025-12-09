@@ -7,15 +7,14 @@ import {
   HiTruck,
   HiXCircle,
   HiStop,
-  HiOutlineLightningBolt, // Added for next trip highlight
+  HiOutlineLightningBolt,
 } from "react-icons/hi";
 import { RouteData, ServerRouteData, ACCENT_COLOR } from "../lib/constants";
-import { findNextTrip } from "../lib/timeUtils"; // Assuming this utility is available
+import { findNextTrip } from "../lib/timeUtils";
 
 // ====================================================================
-// ---- HELPER FUNCTION: LIVE STATUS RENDERER ----
+// ---- HELPER FUNCTION: LIVE STATUS RENDERER FOR ALL BUSES ----
 // ====================================================================
-// (This function remains largely the same as in the original code block)
 const renderLiveStatus = (liveData: ServerRouteData | undefined) => {
   if (
     !liveData ||
@@ -37,64 +36,63 @@ const renderLiveStatus = (liveData: ServerRouteData | undefined) => {
   };
 
   const buses = liveData.buses;
-  const firstBus = Object.values(buses)[0] as BusData | undefined;
+  const busElements = Object.entries(buses).map(([busNumber, bus]) => {
+    const busData = bus as BusData;
+    const isRunning = busData.position !== null && busData.sharers > 0;
+    const etaMinutes = busData.eta ? Math.ceil(busData.eta / 60) : null;
 
-  if (!firstBus) {
+    let statusText, statusColor, StatusIcon;
+
+    if (isRunning) {
+      statusText = "Bus Live";
+      statusColor = "text-green-600";
+      StatusIcon = HiTruck;
+    } else if (busData.sharers > 0) {
+      statusText = "Awaiting Position";
+      statusColor = "text-yellow-600";
+      StatusIcon = HiStop;
+    } else {
+      statusText = "Inactive";
+      statusColor = "text-red-500";
+      StatusIcon = HiXCircle;
+    }
+
     return (
-      <div className="flex items-center gap-2 text-gray-500 bg-gray-100 p-2 rounded-lg text-sm font-semibold">
-        <HiXCircle className="h-5 w-5" />
-        <span>No Live Tracking</span>
+      <div
+        key={busNumber}
+        className="grid grid-cols-2 gap-3 mt-2 border-b border-gray-100 pb-2"
+      >
+        <div
+          className={`flex items-center justify-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 ${statusColor}`}
+        >
+          <StatusIcon className="h-5 w-5 font-bold" />
+          <span className="text-sm font-extrabold">{statusText}</span>
+        </div>
+
+        <div
+          className={`flex items-center justify-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 ${
+            isRunning ? "text-indigo-600" : "text-gray-500"
+          }`}
+        >
+          <HiClock className="h-5 w-5" />
+          <span className="text-sm font-semibold">
+            ETA:{" "}
+            {isRunning && etaMinutes !== null ? `${etaMinutes} min` : "N/A"}
+          </span>
+        </div>
+
+        <div className="col-span-2 flex items-center justify-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 text-gray-700">
+          <HiUser className="h-5 w-5 text-purple-500" />
+          <span className="text-sm font-semibold">
+            Bus {busNumber}: {busData.sharers || 0} sharer
+            {busData.sharers !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
     );
-  }
+  });
 
-  const isRunning = firstBus.position !== null && firstBus.sharers > 0;
-  const etaMinutes = firstBus.eta ? Math.ceil(firstBus.eta / 60) : null;
-
-  let statusText, statusColor, StatusIcon;
-
-  if (isRunning) {
-    statusText = "Bus Live";
-    statusColor = "text-green-600";
-    StatusIcon = HiTruck;
-  } else if (firstBus.sharers > 0) {
-    statusText = "Awaiting Position";
-    statusColor = "text-yellow-600";
-    StatusIcon = HiStop;
-  } else {
-    statusText = "Inactive";
-    statusColor = "text-red-500";
-    StatusIcon = HiXCircle;
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-3 mt-3">
-      <div
-        className={`flex items-center justify-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 ${statusColor}`}
-      >
-        <StatusIcon className="h-5 w-5 font-bold" />
-        <span className="text-sm font-extrabold">{statusText}</span>
-      </div>
-
-      <div
-        className={`flex items-center justify-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 ${
-          isRunning ? "text-indigo-600" : "text-gray-500"
-        }`}
-      >
-        <HiClock className="h-5 w-5" />
-        <span className="text-sm font-semibold">
-          ETA: {isRunning && etaMinutes !== null ? `${etaMinutes} min` : "N/A"}
-        </span>
-      </div>
-
-      <div className="col-span-2 flex items-center justify-center gap-2 p-2 rounded-lg bg-white shadow-sm border border-gray-100 text-gray-700">
-        <HiUser className="h-5 w-5 text-purple-500" />
-        <span className="text-sm font-semibold">
-          Sharers: {firstBus.sharers || 0} on Route
-        </span>
-      </div>
-    </div>
-  );
+  return <div className="mt-3">{busElements}</div>;
 };
 
 // ====================================================================
@@ -145,7 +143,7 @@ export default function RouteCard({
         {routeName}
       </h3>
 
-      {/* LIVE STATUS */}
+      {/* LIVE STATUS FOR ALL BUSES */}
       {renderLiveStatus(liveData)}
       <hr className="my-5 border-gray-200" />
 

@@ -392,7 +392,7 @@ export default function DedicatedRoutePage() {
         © {new Date().getFullYear()} UIU Shuttle Tracker.
         <div className="flex justify-center mt-2">
           <a
-            href="https://github.com/your-github-username/university-shuttle-bus"
+            href="https://github.com/rakibul23n28/uiu-shuttle-bus"
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-500 hover:text-blue-700 transition"
