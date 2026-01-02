@@ -180,9 +180,21 @@ export default function DedicatedRoutePage() {
           });
         },
         (err) => {
-          console.error("Geolocation error:", err);
-          stopSharing(false); // Stop without confirmation if error
-          setToastMessage("⚠️ Geolocation error, tracking stopped.");
+          console.error("Geolocation error:", {
+            code: err.code,
+            message: err.message,
+          });
+
+          stopSharing(false);
+          setToastMessage(
+            err.code === err.PERMISSION_DENIED
+              ? "❌ Location permission denied."
+              : err.code === err.POSITION_UNAVAILABLE
+              ? "📡 Location unavailable."
+              : err.code === err.TIMEOUT
+              ? "⏱️ Location request timed out."
+              : "⚠️ Unknown geolocation error."
+          );
         },
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
       );
