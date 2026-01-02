@@ -1,36 +1,177 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UIU Shuttle Bus Application 🚌
 
-## Getting Started
+A **real-time shuttle bus tracking and communication system** for **United International University (UIU)**. The application allows students to collaboratively share live bus locations, estimate arrival times (ETA), and chat with others on the same route using **Socket.IO**.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## ✨ Key Features
+
+- 🗺️ **Real-time bus position tracking** (crowd-sourced)
+- 👥 **Multiple users share location** for the same bus
+- 📊 **Smart clustering & averaging** of GPS data
+- ⏱️ **Automatic ETA calculation** to UIU
+- 💬 **Route-based live chat system**
+- 🚏 Predefined UIU shuttle routes
+- 🔄 Auto cleanup of inactive users
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend:** Node.js, Express.js
+- **Real-time Communication:** Socket.IO
+- **Utilities:** CORS, REST API
+- **Math:** Haversine formula (distance calculation)
+
+---
+
+## 📂 Project Structure
+
+```plaintext
+.
+├── server.js          # Main Express + Socket.IO server
+├── package.json       # Project dependencies
+└── README.md          # Documentation
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚌 Available Shuttle Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route ID | Route Name        |
+| -------- | ----------------- |
+| `kuril`  | Kuril → UIU       |
+| `aftab`  | Aftab Nagar → UIU |
+| `notun`  | Notun Bazar → UIU |
 
-## Learn More
+Each route contains predefined GPS coordinates used for ETA calculation.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🚀 Getting Started
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Prerequisites
 
-## Deploy on Vercel
+- Node.js (v16 or higher)
+- npm or yarn
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Installation
+
+```bash
+git clone https://github.com/your-username/uiu-shuttle-bus.git
+cd uiu-shuttle-bus
+npm install
+```
+
+---
+
+### Run the Server
+
+```bash
+node server.js
+```
+
+Server will start at:
+
+```
+http://localhost:4000
+```
+
+---
+
+## 🔌 REST API Endpoints
+
+### Get all routes
+
+```
+GET /api/routes
+```
+
+### Add a new route
+
+```
+POST /api/routes
+```
+
+### Delete a route
+
+```
+DELETE /api/routes/:id
+```
+
+---
+
+## 🔄 Socket.IO Events
+
+### Location Sharing
+
+| Event            | Direction       | Description                   |
+| ---------------- | --------------- | ----------------------------- |
+| `share:start`    | Client → Server | Start sharing location        |
+| `share:pos`      | Client → Server | Send GPS coordinates          |
+| `share:stop`     | Client → Server | Stop sharing                  |
+| `buses:update`   | Server → Client | Broadcast bus positions & ETA |
+| `shares:changed` | Server → Client | User join/leave updates       |
+
+---
+
+### Chat System
+
+| Event         | Direction       | Description           |
+| ------------- | --------------- | --------------------- |
+| `chat:join`   | Client → Server | Join route chat       |
+| `chat:init`   | Server → Client | Initial chat history  |
+| `chat:send`   | Client → Server | Send message          |
+| `chat:update` | Server → Client | Broadcast new message |
+
+---
+
+## 🧠 How Bus Position is Calculated
+
+1. Users share live GPS locations
+2. Nearby users (within **20 meters**) are clustered
+3. Average location is computed
+4. Distance to UIU is calculated using **Haversine formula**
+5. ETA is estimated using average speed (5.33 m/s)
+
+---
+
+## 🧹 Automatic Cleanup
+
+- Users inactive for **3 minutes** are removed
+- Cleanup runs every **30 seconds**
+
+---
+
+## 🎯 Use Case Scenario
+
+A student opens the app, selects their shuttle route and bus number, and starts sharing location. Other students instantly see the bus moving on the map, ETA updates every 2 seconds, and can communicate via route chat.
+
+---
+
+## 🔮 Future Improvements
+
+- Google Maps integration
+- Driver-only verified tracking
+- Authentication system
+- Admin dashboard
+- Mobile app version
+
+---
+
+## 👨‍💻 Author
+
+**Rakibul Hasan**
+Student, United International University
+
+---
+
+## 📜 License
+
+Educational use only. Free to modify and extend.
+
+---
+
+⭐ If you find this project useful, consider giving it a star!
