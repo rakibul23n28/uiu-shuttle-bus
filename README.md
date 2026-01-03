@@ -60,7 +60,7 @@ Each route contains predefined GPS coordinates used for ETA calculation.
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/uiu-shuttle-bus.git
+git clone https://github.com/rakibul23n28/uiu-shuttle-bus.git
 cd uiu-shuttle-bus
 npm install
 ```
